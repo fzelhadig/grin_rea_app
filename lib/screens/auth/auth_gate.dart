@@ -1,68 +1,113 @@
+// lib/screens/auth/auth_gate.dart
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:grin_rea_app/core/app_theme.dart';
 import 'package:grin_rea_app/services/auth_service.dart';
 import 'package:grin_rea_app/screens/auth/login_screen.dart';
 import 'package:grin_rea_app/screens/home/home_screen.dart';
 import 'package:grin_rea_app/screens/auth/profile_setup_screen.dart';
 
-class AuthGate extends StatefulWidget {
+class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
 
   @override
-  State<AuthGate> createState() => _AuthGateState();
-}
-
-class _AuthGateState extends State<AuthGate> {
-  bool _isLoading = true;
-  bool _hasProfile = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _setupAuthListener();
-    _checkInitialState();
-  }
-
-  void _setupAuthListener() {
-    AuthService.authStateChanges.listen((data) {
-      _checkAuthState();
-    });
-  }
-
-  Future<void> _checkInitialState() async {
-    await _checkAuthState();
-  }
-
-  Future<void> _checkAuthState() async {
-    if (AuthService.isLoggedIn) {
-      final hasProfile = await AuthService.hasProfile();
-      setState(() {
-        _hasProfile = hasProfile;
-        _isLoading = false;
-      });
-    } else {
-      setState(() {
-        _hasProfile = false;
-        _isLoading = false;
-      });
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
+    return StreamBuilder<AuthState>(
+      stream: AuthService.authStateChanges,
+      builder: (context, snapshot) {
+        print('AuthGate StreamBuilder - Connection: ${snapshot.connectionState}');
+        print('AuthGate StreamBuilder - Has data: ${snapshot.hasData}');
+        
+        // Show loading while waiting for initial auth state
+        if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
+          return _buildLoadingScreen();
+        }
 
-    if (!AuthService.isLoggedIn) {
-      return const LoginScreen();
-    }
+        // Check if user is logged in
+        final session = snapshot.hasData ? snapshot.data!.session : null;
+        
+        if (session?.user == null) {
+          print('No session, showing login screen');
+          return const LoginScreen();
+        }
 
-    if (!_hasProfile) {
-      return const ProfileSetupScreen();
-    }
+        print('User logged in: ${session!.user!.id}');
+        
+        // User is logged in, check if they have a profile
+        return FutureBuilder<bool>(
+          future: AuthService.hasProfile(),
+          builder: (context, profileSnapshot) {
+            // Don't show loading for profile check, just use previous state
+            if (profileSnapshot.connectionState == ConnectionState.waiting) {
+              // Return a minimal loading indicator or the current screen
+              return Scaffold(
+                backgroundColor: AppTheme.lightGrey,
+                body: Center(
+                  child: CircularProgressIndicator(
+                    color: AppTheme.primaryOrange,
+                    strokeWidth: 2,
+                  ),
+                ),
+              );
+            }
 
-    return const HomeScreen();
+            final hasProfile = profileSnapshot.data ?? false;
+            print('User has profile: $hasProfile');
+
+            if (!hasProfile) {
+              return const ProfileSetupScreen();
+            }
+
+            return const HomeScreen();
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildLoadingScreen() {
+    return Scaffold(
+      backgroundColor: AppTheme.lightGrey,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(32),
+              decoration: BoxDecoration(
+                gradient: AppTheme.primaryGradient,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.motorcycle,
+                size: 60,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 32),
+            Text(
+              'Grin REA',
+              style: AppTheme.heading1.copyWith(
+                fontSize: 32,
+                letterSpacing: 1.2,
+              ),
+            ),
+            const SizedBox(height: 16),
+            CircularProgressIndicator(
+              color: AppTheme.primaryOrange,
+              strokeWidth: 3,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Loading...',
+              style: AppTheme.bodyMedium.copyWith(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

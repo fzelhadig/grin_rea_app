@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:grin_rea_app/services/auth_service.dart';
+import 'package:grin_rea_app/core/restart_widget.dart';
+import 'package:grin_rea_app/core/app_theme.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -531,49 +533,89 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _showLogoutDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Logout'),
-          content: const Text('Are you sure you want to logout?'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('Cancel'),
+  showDialog(
+    context: context,
+    builder: (BuildContext dialogContext) {
+      return AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryOrange.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.logout, color: AppTheme.primaryOrange, size: 20),
             ),
-            ElevatedButton(
-              onPressed: () async {
-                try {
-                  await AuthService.signOut();
-                  Navigator.of(context).pop();
-                  setState(() {
-                    userProfile = null;
-                  });
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Logged out successfully!'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                } catch (e) {
-                  Navigator.of(context).pop();
+            const SizedBox(width: 12),
+            const Text('Logout'),
+          ],
+        ),
+        content: const Text(
+          'Are you sure you want to logout?',
+          style: AppTheme.bodyMedium,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+            },
+            child: Text(
+              'Cancel',
+              style: AppTheme.bodyMedium.copyWith(
+                color: AppTheme.mediumGrey,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              // Close the confirmation dialog immediately
+              Navigator.of(dialogContext).pop();
+              
+              // Perform logout without showing loading dialog
+              try {
+                print('Starting logout process...');
+                await AuthService.signOut();
+                print('Logout completed successfully');
+                
+                // The StreamBuilder AuthGate should automatically handle the redirect
+                // No need to manually navigate or restart
+                
+              } catch (e) {
+                print('Logout error: $e');
+                
+                // Only show error if the widget is still mounted
+                if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Error logging out: $e'),
-                      backgroundColor: Colors.red,
+                      content: Row(
+                        children: [
+                          const Icon(Icons.error, color: Colors.white),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text('Error logging out: $e')),
+                        ],
+                      ),
+                      backgroundColor: AppTheme.error,
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      duration: const Duration(seconds: 3),
                     ),
                   );
                 }
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              child: const Text('Logout'),
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryOrange,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
-          ],
-        );
-      },
-    );
-  }
+            child: const Text('Logout'),
+          ),
+        ],
+      );
+    },
+  );
+}
 }
