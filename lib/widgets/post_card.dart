@@ -1,4 +1,3 @@
-// lib/widgets/post_card.dart
 import 'package:flutter/material.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:grin_rea_app/core/app_theme.dart';
@@ -26,6 +25,10 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
   late AnimationController _likeAnimationController;
   late Animation<double> _likeAnimation;
   bool _isLikeAnimating = false;
+  
+  // Local state to track like status for immediate UI feedback
+  late int _localLikeCount;
+  late bool _localIsLiked;
 
   @override
   void initState() {
@@ -37,6 +40,30 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
     _likeAnimation = Tween<double>(begin: 1.0, end: 1.3).animate(
       CurvedAnimation(parent: _likeAnimationController, curve: Curves.elasticOut),
     );
+    
+    // Initialize local state with widget data
+    _localLikeCount = widget.post['like_count'] ?? 0;
+    _localIsLiked = widget.post['is_liked'] ?? false;
+  }
+
+  @override
+  void didUpdateWidget(PostCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    
+    // Update local state when widget data changes
+    final newLikeCount = widget.post['like_count'] ?? 0;
+    final newIsLiked = widget.post['is_liked'] ?? false;
+    
+    if (_localLikeCount != newLikeCount || _localIsLiked != newIsLiked) {
+      print('PostCard didUpdateWidget - Post: ${widget.post['id']}');
+      print('Like count: $_localLikeCount -> $newLikeCount');
+      print('Is liked: $_localIsLiked -> $newIsLiked');
+      
+      setState(() {
+        _localLikeCount = newLikeCount;
+        _localIsLiked = newIsLiked;
+      });
+    }
   }
 
   @override
@@ -48,6 +75,13 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
   void _animatedLike() {
     if (!_isLikeAnimating) {
       setState(() => _isLikeAnimating = true);
+      
+      // Immediately update local state for instant UI feedback
+      setState(() {
+        _localIsLiked = !_localIsLiked;
+        _localLikeCount = _localIsLiked ? _localLikeCount + 1 : _localLikeCount - 1;
+      });
+      
       _likeAnimationController.forward().then((_) {
         _likeAnimationController.reverse().then((_) {
           setState(() => _isLikeAnimating = false);
@@ -312,7 +346,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
                     // TODO: Share functionality
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text(
+                        content: const Text(
                           'Share feature coming soon!',
                           style: TextStyle(color: Colors.white),
                         ),

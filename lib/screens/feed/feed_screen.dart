@@ -220,9 +220,10 @@ class _FeedScreenState extends State<FeedScreen> with TickerProviderStateMixin {
                               return Padding(
                                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                                 child: PostCard(
+                                  key: ValueKey('${_posts[index]['id']}_${_posts[index]['like_count']}_${_posts[index]['is_liked']}'),
                                   post: _posts[index],
                                   onLike: () => _handleLike(_posts[index]['id']),
-                                  onComment: () => _handleComment(_posts[index]),
+                                  onComment: () {}, // No longer needed as PostCard handles navigation
                                   onRefresh: _refreshPosts,
                                 ),
                               );
@@ -361,9 +362,23 @@ class _FeedScreenState extends State<FeedScreen> with TickerProviderStateMixin {
 
   Future<void> _handleLike(String postId) async {
     try {
+      print('Attempting to toggle like for post: $postId');
       await PostService.toggleLike(postId);
-      _refreshPosts(); // Refresh to update like count
+      print('Like toggled successfully');
+      
+      // Force refresh the posts to get updated counts
+      await _refreshPosts();
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Like updated!'),
+          backgroundColor: AppTheme.success,
+          duration: const Duration(seconds: 1),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     } catch (e) {
+      print('Error toggling like: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
