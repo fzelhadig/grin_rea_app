@@ -105,10 +105,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Widget _buildCustomBottomNav() {
     return Container(
       decoration: BoxDecoration(
-        color: AppTheme.white,
+        color: Theme.of(context).cardColor,
         boxShadow: [
           BoxShadow(
-            color: AppTheme.black.withOpacity(0.1),
+            color: Theme.of(context).shadowColor.withOpacity(0.1),
             blurRadius: 10,
             offset: const Offset(0, -2),
           ),
@@ -149,7 +149,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             key: ValueKey(isSelected),
                             color: isSelected 
                                 ? AppTheme.primaryOrange 
-                                : AppTheme.mediumGrey,
+                                : Theme.of(context).textTheme.bodySmall?.color,
                             size: 22,
                           ),
                         ),
@@ -162,7 +162,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                               fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                               color: isSelected 
                                   ? AppTheme.primaryOrange 
-                                  : AppTheme.mediumGrey,
+                                  : Theme.of(context).textTheme.bodySmall?.color,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,

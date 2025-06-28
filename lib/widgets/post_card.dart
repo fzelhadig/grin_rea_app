@@ -67,7 +67,21 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      decoration: AppTheme.cardDecoration,
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Theme.of(context).dividerColor,
+          width: 1,
+        ),
+        boxShadow: Theme.of(context).brightness == Brightness.light ? [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ] : null,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -151,9 +165,9 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
           // Post content
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text(
+            child:             Text(
               widget.post['content'] ?? '',
-              style: AppTheme.bodyLarge.copyWith(height: 1.4),
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.4),
             ),
           ),
           
@@ -187,7 +201,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
                       },
                       errorBuilder: (context, error, stackTrace) => Container(
                         color: AppTheme.lightGrey,
-                        child: const Center(
+                        child: Center(
                           child: Icon(Icons.error, color: AppTheme.mediumGrey),
                         ),
                       ),
@@ -298,12 +312,9 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
                     // TODO: Share functionality
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: const Row(
-                          children: [
-                            Icon(Icons.info, color: Colors.white),
-                            SizedBox(width: 8),
-                            Text('Share feature coming soon!'),
-                          ],
+                        content: Text(
+                          'Share feature coming soon!',
+                          style: TextStyle(color: Colors.white),
                         ),
                         backgroundColor: AppTheme.info,
                         behavior: SnackBarBehavior.floating,
@@ -357,7 +368,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
             const Text('Delete Post'),
           ],
         ),
-        content: const Text(
+        content: Text(
           'Are you sure you want to delete this post? This action cannot be undone.',
           style: AppTheme.bodyMedium,
         ),

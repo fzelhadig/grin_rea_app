@@ -1,7 +1,9 @@
+// lib/screens/profile/profile_screen.dart - Fixed Profile Screen with Theme Toggle
 import 'package:flutter/material.dart';
-import 'package:grin_rea_app/services/auth_service.dart';
-import 'package:grin_rea_app/core/restart_widget.dart';
+import 'package:provider/provider.dart';
 import 'package:grin_rea_app/core/app_theme.dart';
+import 'package:grin_rea_app/providers/theme_provider.dart';
+import 'package:grin_rea_app/services/auth_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -38,298 +40,420 @@ class _ProfileScreenState extends State<ProfileScreen> {
       setState(() {
         isLoading = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error loading profile: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading profile: $e'),
+            backgroundColor: AppTheme.error,
+          ),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    
     if (isLoading) {
-      return Scaffold(
-        backgroundColor: Colors.grey[100],
-        appBar: AppBar(
-          title: const Text('Profile'),
-          backgroundColor: Colors.orange,
-          foregroundColor: Colors.white,
-        ),
-        body: const Center(
-          child: CircularProgressIndicator(
-            color: Colors.orange,
-          ),
-        ),
-      );
+      return _buildLoadingState();
     }
 
-    // If not logged in, show login prompt
-    if (!AuthService.isLoggedIn) {
+    if (!AuthService.isLoggedIn || userProfile == null) {
       return _buildNotLoggedInView();
     }
 
-    // If logged in but no profile, redirect to complete profile
-    if (userProfile == null) {
-      return _buildNoProfileView();
-    }
-
-    // If logged in and has profile, show profile
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('Profile'),
-        backgroundColor: Colors.orange,
-        foregroundColor: Colors.white,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
+        title: Text(
+          'Profile',
+          style: Theme.of(context).textTheme.headlineMedium,
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout),
+            icon: Icon(
+              themeProvider.isDarkMode ? Icons.light_mode : Icons.dark_mode,
+              color: Theme.of(context).iconTheme.color,
+            ),
+            onPressed: () {
+              themeProvider.toggleTheme();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    themeProvider.isDarkMode 
+                        ? 'Switched to Dark Mode' 
+                        : 'Switched to Light Mode',
+                  ),
+                  duration: const Duration(seconds: 1),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
+          ),
+          IconButton(
+            icon: Icon(Icons.logout, color: Theme.of(context).iconTheme.color),
             onPressed: _showLogoutDialog,
           ),
         ],
       ),
       body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            // Profile Header
-            Container(
-              width: double.infinity,
-              decoration: const BoxDecoration(
-                color: Colors.orange,
-                borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(30),
-                  bottomRight: Radius.circular(30),
-                ),
+            _buildProfileCard(),
+            const SizedBox(height: 20),
+            _buildBikeInfoCard(),
+            const SizedBox(height: 20),
+            _buildMenuCard(),
+            const SizedBox(height: 100), // Bottom padding for navigation
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProfileCard() {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Theme.of(context).dividerColor,
+          width: 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          // Profile Image and Basic Info
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  AppTheme.primaryOrange.withOpacity(0.1),
+                  Theme.of(context).cardColor,
+                ],
               ),
-              child: Column(
-                children: [
-                  const SizedBox(height: 20),
-                  // Profile Picture
-                  Container(
-                    width: 120,
-                    height: 120,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 4),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.3),
-                          blurRadius: 10,
-                          offset: const Offset(0, 5),
-                        ),
-                      ],
-                    ),
-                    child: CircleAvatar(
-                      radius: 58,
-                      backgroundColor: Colors.white,
-                      backgroundImage: userProfile?['avatar_url'] != null 
-                          ? NetworkImage(userProfile!['avatar_url'])
-                          : null,
-                      child: userProfile?['avatar_url'] == null
-                          ? const Icon(
-                              Icons.person,
-                              size: 60,
-                              color: Colors.orange,
-                            )
-                          : null,
-                    ),
-                  ),
-                  const SizedBox(height: 15),
-                  // User Name
-                  Text(
-                    userProfile?['full_name'] ?? 'Unknown User',
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  // Username
-                  Text(
-                    '@${userProfile?['username'] ?? 'unknown'}',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      color: Colors.white70,
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  // User Email
-                  Text(
-                    userProfile?['email'] ?? AuthService.currentUser?.email ?? 'No email',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Colors.white60,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  // Stats Row
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _buildStat('Rides', userProfile?['total_rides']?.toString() ?? '0'),
-                      _buildStat('Distance', '${userProfile?['total_distance'] ?? 0}km'),
-                      _buildStat('Hours', '${userProfile?['total_hours'] ?? 0}h'),
+            ),
+            child: Column(
+              children: [
+                // Profile Avatar
+                Container(
+                  width: 120,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppTheme.primaryOrange, width: 3),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.primaryOrange.withOpacity(0.3),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 30),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            // Profile Options
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Column(
-                children: [
-                  Card(
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        children: [
-                          // Bio Section
-                          if (userProfile?['bio'] != null && userProfile!['bio'].isNotEmpty)
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(15),
-                              margin: const EdgeInsets.only(bottom: 15),
-                              decoration: BoxDecoration(
-                                color: Colors.grey[50],
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Bio',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.orange,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    userProfile!['bio'],
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.black87,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                  child: CircleAvatar(
+                    radius: 57,
+                    backgroundColor: Theme.of(context).cardColor,
+                    backgroundImage: userProfile?['avatar_url'] != null 
+                        ? NetworkImage(userProfile!['avatar_url'])
+                        : null,
+                    child: userProfile?['avatar_url'] == null
+                        ? Text(
+                            userProfile?['full_name']?[0]?.toUpperCase() ?? 'U',
+                            style: const TextStyle(
+                              fontSize: 40,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.primaryOrange,
                             ),
-                          
-                          // Member Since
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(15),
-                            margin: const EdgeInsets.only(bottom: 15),
-                            decoration: BoxDecoration(
-                              color: Colors.orange.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.calendar_today, color: Colors.orange, size: 20),
-                                const SizedBox(width: 10),
-                                Text(
-                                  'Member since ${_formatDate(userProfile?['created_at'])}',
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.black87,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          
-                          ElevatedButton(
-                            onPressed: () {
-                              Navigator.pushNamed(context, '/complete-profile')?.then((_) {
-                                _loadUserProfile(); // Refresh profile after editing
-                              });
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.orange,
-                              foregroundColor: Colors.white,
-                              minimumSize: const Size(double.infinity, 50),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(25),
-                              ),
-                            ),
-                            child: const Text(
-                              'Edit Profile',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                          const SizedBox(height: 15),
-                          _buildProfileOption(
-                            icon: Icons.motorcycle,
-                            title: 'My Rides',
-                            subtitle: 'View your ride history',
-                            onTap: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('My Rides coming soon!')),
-                              );
-                            },
-                          ),
-                          _buildProfileOption(
-                            icon: Icons.favorite,
-                            title: 'Favorite Routes',
-                            subtitle: 'Your saved routes',
-                            onTap: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Favorite Routes coming soon!')),
-                              );
-                            },
-                          ),
-                          _buildProfileOption(
-                            icon: Icons.group,
-                            title: 'Friends',
-                            subtitle: 'Manage your biker friends',
-                            onTap: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Friends feature coming soon!')),
-                              );
-                            },
-                          ),
-                          _buildProfileOption(
-                            icon: Icons.settings,
-                            title: 'Settings',
-                            subtitle: 'App preferences',
-                            onTap: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Settings coming soon!')),
-                              );
-                            },
-                          ),
-                          _buildProfileOption(
-                            icon: Icons.help,
-                            title: 'Help & Support',
-                            subtitle: 'Get help or contact us',
-                            onTap: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Help & Support coming soon!')),
-                              );
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
+                          )
+                        : null,
                   ),
-                ],
+                ),
+                
+                const SizedBox(height: 16),
+                
+                // Name
+                Text(
+                  userProfile?['full_name'] ?? 'Unknown User',
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontSize: 24),
+                  textAlign: TextAlign.center,
+                ),
+                
+                const SizedBox(height: 4),
+                
+                // Bio
+                if (userProfile?['bio'] != null && userProfile!['bio'].isNotEmpty)
+                  Text(
+                    userProfile!['bio'],
+                    style: Theme.of(context).textTheme.bodyMedium,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  )
+                else
+                  Text(
+                    'Passionate about motorcycles\nand open roads.',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                    textAlign: TextAlign.center,
+                  ),
+                
+                const SizedBox(height: 8),
+                
+                // Username
+                Text(
+                  '@${userProfile?['username'] ?? 'unknown'}',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppTheme.primaryOrange,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // Stats Row
+          Container(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _buildStatItem('${userProfile?['total_rides'] ?? 0}', 'Rides'),
+                _buildStatDivider(),
+                _buildStatItem('${userProfile?['total_distance'] ?? 0}km', 'Distance'),
+                _buildStatDivider(),
+                _buildStatItem('${userProfile?['total_hours'] ?? 0}h', 'Hours'),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBikeInfoCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Theme.of(context).dividerColor,
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.motorcycle, color: AppTheme.primaryOrange, size: 24),
+              const SizedBox(width: 12),
+              Text(
+                'My Bike',
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          
+          if (userProfile?['bike_model'] != null && userProfile!['bike_model'].isNotEmpty) ...[
+            _buildInfoRow('Model', userProfile!['bike_model']),
+            if (userProfile?['bike_year'] != null)
+              _buildInfoRow('Year', userProfile!['bike_year'].toString()),
+          ] else ...[
+            Text(
+              'No bike information added yet',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: () {
+                // TODO: Navigate to edit profile
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Edit bike info coming soon!')),
+                );
+              },
+              icon: const Icon(Icons.add, color: AppTheme.primaryOrange, size: 18),
+              label: Text(
+                'Add bike information',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppTheme.primaryOrange,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
-            const SizedBox(height: 20),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMenuCard() {
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    
+    final menuItems = [
+      {
+        'icon': Icons.edit,
+        'title': 'Edit Profile',
+        'onTap': () => _showComingSoon('Edit Profile'),
+      },
+      {
+        'icon': themeProvider.isDarkMode ? Icons.light_mode : Icons.dark_mode,
+        'title': themeProvider.isDarkMode ? 'Light Mode' : 'Dark Mode',
+        'onTap': () {
+          themeProvider.toggleTheme();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                themeProvider.isDarkMode 
+                    ? 'Switched to Dark Mode' 
+                    : 'Switched to Light Mode',
+              ),
+              duration: const Duration(seconds: 1),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        },
+      },
+      {
+        'icon': Icons.route,
+        'title': 'My Routes',
+        'onTap': () => _showComingSoon('My Routes'),
+      },
+      {
+        'icon': Icons.favorite_outline,
+        'title': 'Favorites',
+        'onTap': () => _showComingSoon('Favorites'),
+      },
+      {
+        'icon': Icons.group_outlined,
+        'title': 'Friends',
+        'onTap': () => _showComingSoon('Friends'),
+      },
+      {
+        'icon': Icons.settings_outlined,
+        'title': 'Settings',
+        'onTap': () => _showComingSoon('Settings'),
+      },
+      {
+        'icon': Icons.help_outline,
+        'title': 'Help & Support',
+        'onTap': () => _showComingSoon('Help & Support'),
+      },
+    ];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Theme.of(context).dividerColor,
+          width: 1,
+        ),
+      ),
+      child: Column(
+        children: menuItems.asMap().entries.map((entry) {
+          final index = entry.key;
+          final item = entry.value;
+          
+          return Column(
+            children: [
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                leading: Icon(
+                  item['icon'] as IconData,
+                  color: AppTheme.primaryOrange,
+                  size: 22,
+                ),
+                title: Text(
+                  item['title'] as String,
+                  style: Theme.of(context).textTheme.bodyLarge,
+                ),
+                trailing: Icon(
+                  Icons.arrow_forward_ios,
+                  size: 16,
+                  color: Theme.of(context).textTheme.bodySmall?.color,
+                ),
+                onTap: item['onTap'] as VoidCallback,
+              ),
+              if (index < menuItems.length - 1)
+                Divider(
+                  height: 1,
+                  color: Theme.of(context).dividerColor,
+                  indent: 62,
+                  endIndent: 20,
+                ),
+            ],
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildStatItem(String value, String label) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+            color: AppTheme.primaryOrange,
+            fontSize: 20,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatDivider() {
+    return Container(
+      height: 30,
+      width: 1,
+      color: Theme.of(context).dividerColor,
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoadingState() {
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: Center(
+        child: CircularProgressIndicator(
+          color: AppTheme.primaryOrange,
         ),
       ),
     );
@@ -337,285 +461,120 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildNotLoggedInView() {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
-      appBar: AppBar(
-        title: const Text('Profile'),
-        backgroundColor: Colors.orange,
-        foregroundColor: Colors.white,
-      ),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Center(
         child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.person_off,
-                size: 100,
-                color: Colors.grey[400],
+          padding: const EdgeInsets.all(32),
+          child: Container(
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: Theme.of(context).dividerColor,
+                width: 1,
               ),
-              const SizedBox(height: 20),
-              const Text(
-                'Not Logged In',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.person_off,
+                  size: 64,
+                  color: Theme.of(context).textTheme.bodySmall?.color,
                 ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'Please log in to view your profile',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey[600],
+                const SizedBox(height: 24),
+                Text(
+                  'Not Logged In',
+                  style: Theme.of(context).textTheme.headlineMedium,
                 ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 30),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pushNamed(context, '/login');
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(200, 50),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(25),
+                const SizedBox(height: 12),
+                Text(
+                  'Please log in to view your profile',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 32),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      // TODO: Navigate to login
+                    },
+                    style: AppTheme.primaryButtonStyle,
+                    child: const Text('Login'),
                   ),
                 ),
-                child: const Text(
-                  'Login',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildNoProfileView() {
-    return Scaffold(
-      backgroundColor: Colors.grey[100],
-      appBar: AppBar(
-        title: const Text('Profile'),
-        backgroundColor: Colors.orange,
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: _showLogoutDialog,
-          ),
-        ],
-      ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.account_circle_outlined,
-                size: 100,
-                color: Colors.grey[400],
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                'Complete Your Profile',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'Set up your profile to get started with the biker community',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey[600],
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 30),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pushNamed(context, '/complete-profile')?.then((_) {
-                    _loadUserProfile(); // Refresh after completing profile
-                  });
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(200, 50),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(25),
-                  ),
-                ),
-                child: const Text(
-                  'Complete Profile',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ],
-          ),
-        ),
+  void _showComingSoon(String feature) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$feature feature coming soon!'),
+        backgroundColor: Theme.of(context).cardColor,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
-  }
-
-  Widget _buildStat(String label, String value) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        ),
-        const SizedBox(height: 5),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 14,
-            color: Colors.white70,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildProfileOption({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-  }) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: ListTile(
-        leading: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            // ignore: deprecated_member_use
-            color: Colors.orange.withOpacity(0.1),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            icon,
-            color: Colors.orange,
-          ),
-        ),
-        title: Text(
-          title,
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        subtitle: Text(subtitle),
-        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-        onTap: onTap,
-      ),
-    );
-  }
-
-  String _formatDate(String? dateString) {
-    if (dateString == null) return 'Unknown';
-    try {
-      final date = DateTime.parse(dateString);
-      return '${date.month}/${date.year}';
-    } catch (e) {
-      return 'Unknown';
-    }
   }
 
   void _showLogoutDialog() {
-  showDialog(
-    context: context,
-    builder: (BuildContext dialogContext) {
-      return AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppTheme.primaryOrange.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.logout, color: AppTheme.primaryOrange, size: 20),
-            ),
-            const SizedBox(width: 12),
-            const Text('Logout'),
-          ],
-        ),
-        content: const Text(
-          'Are you sure you want to logout?',
-          style: AppTheme.bodyMedium,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(dialogContext).pop();
-            },
-            child: Text(
-              'Cancel',
-              style: AppTheme.bodyMedium.copyWith(
-                color: AppTheme.mediumGrey,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          backgroundColor: Theme.of(context).cardColor,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text(
+            'Logout',
+            style: Theme.of(context).textTheme.headlineSmall,
           ),
-          ElevatedButton(
-            onPressed: () async {
-              // Close the confirmation dialog immediately
-              Navigator.of(dialogContext).pop();
-              
-              // Perform logout without showing loading dialog
-              try {
-                print('Starting logout process...');
-                await AuthService.signOut();
-                print('Logout completed successfully');
+          content: Text(
+            'Are you sure you want to logout?',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+              child: Text(
+                'Cancel',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).textTheme.bodySmall?.color,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.of(dialogContext).pop();
                 
-                // The StreamBuilder AuthGate should automatically handle the redirect
-                // No need to manually navigate or restart
-                
-              } catch (e) {
-                print('Logout error: $e');
-                
-                // Only show error if the widget is still mounted
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Row(
-                        children: [
-                          const Icon(Icons.error, color: Colors.white),
-                          const SizedBox(width: 8),
-                          Expanded(child: Text('Error logging out: $e')),
-                        ],
+                try {
+                  await AuthService.signOut();
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error logging out: $e'),
+                        backgroundColor: AppTheme.error,
                       ),
-                      backgroundColor: AppTheme.error,
-                      behavior: SnackBarBehavior.floating,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      duration: const Duration(seconds: 3),
-                    ),
-                  );
+                    );
+                  }
                 }
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryOrange,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              },
+              style: AppTheme.primaryButtonStyle,
+              child: const Text('Logout'),
             ),
-            child: const Text('Logout'),
-          ),
-        ],
-      );
-    },
-  );
-}
+          ],
+        );
+      },
+    );
+  }
 }

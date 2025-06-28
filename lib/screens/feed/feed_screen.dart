@@ -92,7 +92,7 @@ class _FeedScreenState extends State<FeedScreen> with TickerProviderStateMixin {
               const Text('Emergency Alert'),
             ],
           ),
-          content: const Text(
+          content: Text(
             'This will send an emergency alert to nearby bikers. Use only in real emergencies.',
             style: AppTheme.bodyMedium,
           ),
@@ -146,108 +146,128 @@ class _FeedScreenState extends State<FeedScreen> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.lightGrey,
-      appBar: AppBar(
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                shape: BoxShape.circle,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: NestedScrollView(
+        headerSliverBuilder: (context, innerBoxIsScrolled) {
+          return [
+            SliverAppBar(
+              floating: true,
+              snap: true,
+              backgroundColor: AppTheme.primaryOrange,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.motorcycle, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text('Feed'),
+                ],
               ),
-              child: const Icon(Icons.motorcycle, size: 20),
+              actions: [
+                IconButton(
+                  onPressed: () async {
+                    final result = await Navigator.push(
+                      context,
+                      PageRouteBuilder(
+                        pageBuilder: (context, animation, secondaryAnimation) => const CreatePostScreen(),
+                        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                          return SlideTransition(
+                            position: animation.drive(
+                              Tween(begin: const Offset(0.0, 1.0), end: Offset.zero),
+                            ),
+                            child: child,
+                          );
+                        },
+                      ),
+                    );
+                    if (result == true) {
+                      _refreshPosts();
+                    }
+                  },
+                  icon: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.add, size: 20),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 12),
-            const Text('Feed'),
+          ];
+        },
+        body: Stack(
+          children: [
+            _isLoading
+                ? _buildLoadingState()
+                : RefreshIndicator(
+                    onRefresh: _refreshPosts,
+                    color: AppTheme.primaryOrange,
+                    child: _posts.isEmpty
+                        ? _buildEmptyState()
+                        : ListView.builder(
+                            padding: const EdgeInsets.only(top: 8, bottom: 100),
+                            itemCount: _posts.length,
+                            itemBuilder: (context, index) {
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                                child: PostCard(
+                                  post: _posts[index],
+                                  onLike: () => _handleLike(_posts[index]['id']),
+                                  onComment: () => _handleComment(_posts[index]),
+                                  onRefresh: _refreshPosts,
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+            
+            // Emergency Button
+            Positioned(
+              bottom: 24,
+              right: 24,
+              child: AnimatedBuilder(
+                animation: _emergencyAnimation,
+                builder: (context, child) {
+                  return Transform.scale(
+                    scale: _emergencyAnimation.value,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(30),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppTheme.error.withOpacity(0.4),
+                            blurRadius: 15,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: FloatingActionButton.extended(
+                        onPressed: _showEmergencyDialog,
+                        backgroundColor: AppTheme.error,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        icon: const Icon(Icons.emergency, size: 22),
+                        label: const Text(
+                          'Emergency',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
           ],
         ),
-        backgroundColor: AppTheme.primaryOrange,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          IconButton(
-            onPressed: () async {
-              final result = await Navigator.push(
-                context,
-                PageRouteBuilder(
-                  pageBuilder: (context, animation, secondaryAnimation) => const CreatePostScreen(),
-                  transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                    return SlideTransition(
-                      position: animation.drive(
-                        Tween(begin: const Offset(0.0, 1.0), end: Offset.zero),
-                      ),
-                      child: child,
-                    );
-                  },
-                ),
-              );
-              if (result == true) {
-                _refreshPosts();
-              }
-            },
-            icon: Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.add, size: 20),
-            ),
-          ),
-        ],
-      ),
-      body: Stack(
-        children: [
-          _isLoading
-              ? _buildLoadingState()
-              : RefreshIndicator(
-                  onRefresh: _refreshPosts,
-                  color: AppTheme.primaryOrange,
-                  child: _posts.isEmpty
-                      ? _buildEmptyState()
-                      : ListView.builder(
-                          padding: const EdgeInsets.only(top: 8, bottom: 100),
-                          itemCount: _posts.length,
-                          itemBuilder: (context, index) {
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                              child: PostCard(
-                                post: _posts[index],
-                                onLike: () => _handleLike(_posts[index]['id']),
-                                onComment: () => _handleComment(_posts[index]),
-                                onRefresh: _refreshPosts,
-                              ),
-                            );
-                          },
-                        ),
-                ),
-          
-          // Emergency Button
-          Positioned(
-            bottom: 24,
-            right: 24,
-            child: AnimatedBuilder(
-              animation: _emergencyAnimation,
-              builder: (context, child) {
-                return Transform.scale(
-                  scale: _emergencyAnimation.value,
-                  child: FloatingActionButton.extended(
-                    onPressed: _showEmergencyDialog,
-                    backgroundColor: AppTheme.error,
-                    foregroundColor: Colors.white,
-                    elevation: 8,
-                    icon: const Icon(Icons.emergency, size: 24),
-                    label: const Text(
-                      'Emergency',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
       ),
     );
   }

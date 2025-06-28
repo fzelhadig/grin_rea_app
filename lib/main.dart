@@ -1,8 +1,10 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:grin_rea_app/core/supabase_config.dart';
 import 'package:grin_rea_app/core/app_theme.dart';
 import 'package:grin_rea_app/core/restart_widget.dart';
+import 'package:grin_rea_app/providers/theme_provider.dart';
 import 'package:grin_rea_app/screens/auth/auth_gate.dart';
 
 void main() async {
@@ -10,7 +12,12 @@ void main() async {
   
   try {
     await SupabaseConfig.initialize();
-    runApp(const BikerApp());
+    runApp(
+      ChangeNotifierProvider(
+        create: (context) => ThemeProvider(),
+        child: const BikerApp(),
+      ),
+    );
   } catch (e) {
     print('Error initializing Supabase: $e');
     runApp(const BikerAppError());
@@ -22,13 +29,19 @@ class BikerApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return RestartWidget(
-      child: MaterialApp(
-        title: 'Grin REA',
-        theme: AppTheme.themeData,
-        home: const AuthGate(),
-        debugShowCheckedModeBanner: false,
-      ),
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        return RestartWidget(
+          child: MaterialApp(
+            title: 'Grin REA',
+            theme: AppTheme.lightThemeData,
+            darkTheme: AppTheme.darkThemeData,
+            themeMode: themeProvider.themeMode,
+            home: const AuthGate(),
+            debugShowCheckedModeBanner: false,
+          ),
+        );
+      },
     );
   }
 }
