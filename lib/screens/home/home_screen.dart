@@ -1,4 +1,4 @@
-// lib/screens/home/home_screen.dart
+// lib/screens/home/home_screen.dart - Updated with Promotions
 import 'package:flutter/material.dart';
 import 'package:grin_rea_app/core/app_theme.dart';
 import 'package:grin_rea_app/screens/feed/feed_screen.dart';
@@ -6,6 +6,7 @@ import 'package:grin_rea_app/screens/profile/profile_screen.dart';
 import 'package:grin_rea_app/screens/map/map_screen.dart';
 import 'package:grin_rea_app/screens/info/info_screen.dart';
 import 'package:grin_rea_app/screens/meetings/meetings_screen.dart';
+import 'package:grin_rea_app/screens/promotions/promotions_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -23,7 +24,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     const FeedScreen(),
     const MapScreen(),
     const InfoScreen(),
-    const MeetingsScreen(),
+    const PromotionsScreen(),  // Added promotions screen
     const ProfileScreen(),
   ];
 
@@ -44,9 +45,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       label: 'Info',
     ),
     NavigationItem(
-      icon: Icons.event_outlined,
-      activeIcon: Icons.event,
-      label: 'Meetings',
+      icon: Icons.local_offer_outlined,
+      activeIcon: Icons.local_offer,
+      label: 'Deals',  // Changed from Meetings to Deals
     ),
     NavigationItem(
       icon: Icons.person_outline,

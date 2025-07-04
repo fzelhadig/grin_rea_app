@@ -1,8 +1,12 @@
-// lib/screens/feed/feed_screen.dart
+// lib/screens/feed/feed_screen.dart - Enhanced Version
 import 'package:flutter/material.dart';
 import 'package:grin_rea_app/core/app_theme.dart';
 import 'package:grin_rea_app/services/post_service.dart';
+import 'package:grin_rea_app/services/emergency_service.dart';
+import 'package:grin_rea_app/services/follow_service.dart';
 import 'package:grin_rea_app/screens/feed/create_post_screen.dart';
+import 'package:grin_rea_app/screens/feed/search_screen.dart';
+import 'package:grin_rea_app/screens/feed/emergency_screen.dart';
 import 'package:grin_rea_app/widgets/post_card.dart';
 
 class FeedScreen extends StatefulWidget {
@@ -18,11 +22,13 @@ class _FeedScreenState extends State<FeedScreen> with TickerProviderStateMixin {
   bool _isRefreshing = false;
   late AnimationController _emergencyAnimationController;
   late Animation<double> _emergencyAnimation;
+  int _nearbyAlertsCount = 0;
 
   @override
   void initState() {
     super.initState();
     _loadPosts();
+    _loadNearbyAlerts();
     _emergencyAnimationController = AnimationController(
       duration: const Duration(milliseconds: 1000),
       vsync: this,
@@ -66,9 +72,25 @@ class _FeedScreenState extends State<FeedScreen> with TickerProviderStateMixin {
     }
   }
 
+  Future<void> _loadNearbyAlerts() async {
+    try {
+      // This is a simplified version - in a real app, you'd get the user's location
+      final alerts = await EmergencyService.getNearbyEmergencyAlerts(
+        latitude: 50.6292, // Lille coordinates as default
+        longitude: 3.0573,
+      );
+      setState(() {
+        _nearbyAlertsCount = alerts.length;
+      });
+    } catch (e) {
+      print('Error loading nearby alerts: $e');
+    }
+  }
+
   Future<void> _refreshPosts() async {
     setState(() => _isRefreshing = true);
     await _loadPosts();
+    await _loadNearbyAlerts();
     setState(() => _isRefreshing = false);
   }
 
@@ -77,6 +99,7 @@ class _FeedScreenState extends State<FeedScreen> with TickerProviderStateMixin {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
+          backgroundColor: Theme.of(context).cardColor,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: Row(
             children: [
@@ -89,35 +112,50 @@ class _FeedScreenState extends State<FeedScreen> with TickerProviderStateMixin {
                 child: Icon(Icons.emergency, color: AppTheme.error, size: 24),
               ),
               const SizedBox(width: 12),
-              const Text('Emergency Alert'),
+              const Text('Emergency Options'),
             ],
           ),
-          content: Text(
-            'This will send an emergency alert to nearby bikers. Use only in real emergencies.',
-            style: AppTheme.bodyMedium,
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Choose an emergency option:',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 20),
+              _buildEmergencyOption(
+                'Send Alert',
+                'Alert nearby bikers',
+                Icons.warning,
+                AppTheme.error,
+                () {
+                  Navigator.pop(context);
+                  _showEmergencyTypeDialog();
+                },
+              ),
+              const SizedBox(height: 12),
+              _buildEmergencyOption(
+                'View Nearby Alerts',
+                '$_nearbyAlertsCount active alerts',
+                Icons.map,
+                AppTheme.info,
+                () {
+                  Navigator.pop(context);
+                  _navigateToEmergencyScreen();
+                },
+              ),
+            ],
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: Text(
                 'Cancel',
-                style: AppTheme.bodyMedium.copyWith(
-                  color: AppTheme.mediumGrey,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).textTheme.bodySmall?.color,
                   fontWeight: FontWeight.w600,
                 ),
               ),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _sendEmergencyAlert();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.error,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              child: const Text('Send Alert'),
             ),
           ],
         );
@@ -125,20 +163,249 @@ class _FeedScreenState extends State<FeedScreen> with TickerProviderStateMixin {
     );
   }
 
-  void _sendEmergencyAlert() {
-    // TODO: Implement emergency alert functionality
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Row(
+  Widget _buildEmergencyOption(String title, String subtitle, IconData icon, Color color, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.3)),
+        ),
+        child: Row(
           children: [
-            Icon(Icons.check_circle, color: Colors.white),
-            SizedBox(width: 8),
-            Text('Emergency alert sent to nearby bikers!'),
+            Icon(icon, color: color, size: 24),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.arrow_forward_ios, color: color, size: 16),
           ],
         ),
-        backgroundColor: AppTheme.success,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+  }
+
+  void _showEmergencyTypeDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: Theme.of(context).cardColor,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppTheme.error.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.emergency, color: AppTheme.error, size: 24),
+              ),
+              const SizedBox(width: 12),
+              const Text('Emergency Type'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'What type of emergency?',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 20),
+              _buildEmergencyTypeOption(
+                'Accident',
+                'I\'ve been in an accident',
+                Icons.car_crash,
+                EmergencyService.alertTypeAccident,
+              ),
+              const SizedBox(height: 8),
+              _buildEmergencyTypeOption(
+                'Breakdown',
+                'My bike has broken down',
+                Icons.build,
+                EmergencyService.alertTypeBreakdown,
+              ),
+              const SizedBox(height: 8),
+              _buildEmergencyTypeOption(
+                'Medical',
+                'Medical emergency',
+                Icons.medical_services,
+                EmergencyService.alertTypeMedical,
+              ),
+              const SizedBox(height: 8),
+              _buildEmergencyTypeOption(
+                'General Help',
+                'Need general assistance',
+                Icons.help,
+                EmergencyService.alertTypeGeneral,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'Cancel',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).textTheme.bodySmall?.color,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildEmergencyTypeOption(String title, String subtitle, IconData icon, String alertType) {
+    return InkWell(
+      onTap: () {
+        Navigator.pop(context);
+        _sendEmergencyAlert(alertType);
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: AppTheme.error, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _sendEmergencyAlert(String alertType) async {
+    try {
+      // Show loading
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => Center(
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(color: AppTheme.error),
+                const SizedBox(height: 16),
+                Text(
+                  'Sending emergency alert...',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      await EmergencyService.sendEmergencyAlert(alertType: alertType);
+      
+      if (mounted) {
+        Navigator.pop(context); // Close loading dialog
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 8),
+                Text('Emergency alert sent to nearby bikers!'),
+              ],
+            ),
+            backgroundColor: AppTheme.success,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        );
+        
+        // Refresh nearby alerts count
+        _loadNearbyAlerts();
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // Close loading dialog
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error, color: Colors.white),
+                const SizedBox(width: 8),
+                Expanded(child: Text('Error sending alert: $e')),
+              ],
+            ),
+            backgroundColor: AppTheme.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        );
+      }
+    }
+  }
+
+  void _navigateToEmergencyScreen() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const EmergencyScreen(),
+      ),
+    );
+  }
+
+  void _navigateToSearch() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const SearchScreen(),
       ),
     );
   }
@@ -171,6 +438,17 @@ class _FeedScreenState extends State<FeedScreen> with TickerProviderStateMixin {
                 ],
               ),
               actions: [
+                IconButton(
+                  onPressed: _navigateToSearch,
+                  icon: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.search, size: 20),
+                  ),
+                ),
                 IconButton(
                   onPressed: () async {
                     final result = await Navigator.push(
@@ -223,7 +501,7 @@ class _FeedScreenState extends State<FeedScreen> with TickerProviderStateMixin {
                                   key: ValueKey('${_posts[index]['id']}_${_posts[index]['like_count']}_${_posts[index]['is_liked']}'),
                                   post: _posts[index],
                                   onLike: () => _handleLike(_posts[index]['id']),
-                                  onComment: () {}, // No longer needed as PostCard handles navigation
+                                  onComment: () {},
                                   onRefresh: _refreshPosts,
                                 ),
                               );
@@ -256,7 +534,36 @@ class _FeedScreenState extends State<FeedScreen> with TickerProviderStateMixin {
                         backgroundColor: AppTheme.error,
                         foregroundColor: Colors.white,
                         elevation: 0,
-                        icon: const Icon(Icons.emergency, size: 22),
+                        icon: Stack(
+                          children: [
+                            const Icon(Icons.emergency, size: 22),
+                            if (_nearbyAlertsCount > 0)
+                              Positioned(
+                                right: 0,
+                                top: 0,
+                                child: Container(
+                                  padding: const EdgeInsets.all(2),
+                                  decoration: const BoxDecoration(
+                                    color: Colors.yellow,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  constraints: const BoxConstraints(
+                                    minWidth: 12,
+                                    minHeight: 12,
+                                  ),
+                                  child: Text(
+                                    '$_nearbyAlertsCount',
+                                    style: const TextStyle(
+                                      color: Colors.black,
+                                      fontSize: 8,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
                         label: const Text(
                           'Emergency',
                           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
@@ -281,7 +588,7 @@ class _FeedScreenState extends State<FeedScreen> with TickerProviderStateMixin {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: AppTheme.white,
+              color: Theme.of(context).cardColor,
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
@@ -299,7 +606,7 @@ class _FeedScreenState extends State<FeedScreen> with TickerProviderStateMixin {
           const SizedBox(height: 24),
           Text(
             'Loading your feed...',
-            style: AppTheme.bodyMedium.copyWith(
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               fontSize: 16,
               fontWeight: FontWeight.w500,
             ),
@@ -331,12 +638,12 @@ class _FeedScreenState extends State<FeedScreen> with TickerProviderStateMixin {
             const SizedBox(height: 24),
             Text(
               'No posts yet',
-              style: AppTheme.heading2,
+              style: Theme.of(context).textTheme.headlineMedium,
             ),
             const SizedBox(height: 12),
             Text(
               'Follow other bikers or create your first post to get started!',
-              style: AppTheme.bodyMedium,
+              style: Theme.of(context).textTheme.bodyMedium,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
@@ -362,23 +669,20 @@ class _FeedScreenState extends State<FeedScreen> with TickerProviderStateMixin {
 
   Future<void> _handleLike(String postId) async {
     try {
-      print('Attempting to toggle like for post: $postId');
       await PostService.toggleLike(postId);
-      print('Like toggled successfully');
-      
-      // Force refresh the posts to get updated counts
       await _refreshPosts();
       
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Like updated!'),
-          backgroundColor: AppTheme.success,
-          duration: const Duration(seconds: 1),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Like updated!'),
+            backgroundColor: AppTheme.success,
+            duration: const Duration(seconds: 1),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     } catch (e) {
-      print('Error toggling like: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -396,23 +700,5 @@ class _FeedScreenState extends State<FeedScreen> with TickerProviderStateMixin {
         );
       }
     }
-  }
-
-  void _handleComment(Map<String, dynamic> post) {
-    // TODO: Navigate to comments screen
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Row(
-          children: [
-            Icon(Icons.info, color: Colors.white),
-            SizedBox(width: 8),
-            Text('Comments feature coming soon!'),
-          ],
-        ),
-        backgroundColor: AppTheme.info,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
-    );
   }
 }

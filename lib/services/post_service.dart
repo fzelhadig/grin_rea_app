@@ -1,4 +1,4 @@
-// lib/services/post_service.dart - Enhanced Version
+// lib/services/post_service.dart - Fixed Version
 import 'dart:math' show sin, cos, sqrt, atan2, pi;
 import 'package:grin_rea_app/core/supabase_config.dart';
 import 'package:grin_rea_app/services/auth_service.dart';
@@ -167,11 +167,11 @@ class PostService {
       } else {
         // Like
         print('Adding like...');
-        final result = await _client.from('post_likes').insert({
+        await _client.from('post_likes').insert({
           'post_id': postId,
           'user_id': userId,
         });
-        print('Like added successfully: $result');
+        print('Like added successfully');
       }
     } catch (e) {
       print('Error in toggleLike: $e');
@@ -226,7 +226,7 @@ class PostService {
     try {
       final response = await _client
           .from('post_likes')
-          .select()
+          .select('id')
           .eq('post_id', postId);
 
       return response.length;
@@ -243,7 +243,7 @@ class PostService {
     try {
       final response = await _client
           .from('post_likes')
-          .select()
+          .select('id')
           .eq('post_id', postId)
           .eq('user_id', AuthService.currentUser!.id)
           .maybeSingle();
@@ -260,7 +260,7 @@ class PostService {
     try {
       final response = await _client
           .from('post_comments')
-          .select()
+          .select('id')
           .eq('post_id', postId);
 
       return response.length;
@@ -285,23 +285,45 @@ class PostService {
   static Future<List<Map<String, dynamic>>> searchPosts(String query) async {
     if (query.isEmpty) return [];
 
-    final response = await _client
-        .from('posts')
-        .select('''
-          *,
-          profiles:user_id (
-            id,
-            username,
-            full_name,
-            avatar_url
-          )
-        ''')
-        .or('content.ilike.%$query%,location_name.ilike.%$query%')
-        .eq('is_active', true)
-        .order('created_at', ascending: false)
-        .limit(20);
+    try {
+      final response = await _client
+          .from('posts')
+          .select('''
+            *,
+            profiles:user_id (
+              id,
+              username,
+              full_name,
+              avatar_url
+            )
+          ''')
+          .or('content.ilike.%$query%,location_name.ilike.%$query%')
+          .eq('is_active', true)
+          .order('created_at', ascending: false)
+          .limit(20);
 
-    return List<Map<String, dynamic>>.from(response);
+      // Add like count and user liked status to each post
+      List<Map<String, dynamic>> postsWithCounts = [];
+      
+      for (var post in response) {
+        final postData = Map<String, dynamic>.from(post);
+        
+        final likeCount = await getLikeCount(post['id']);
+        final isLiked = await isPostLikedByUser(post['id']);
+        final commentCount = await getCommentCount(post['id']);
+        
+        postData['like_count'] = likeCount;
+        postData['is_liked'] = isLiked;
+        postData['comment_count'] = commentCount;
+        
+        postsWithCounts.add(postData);
+      }
+
+      return postsWithCounts;
+    } catch (e) {
+      print('Error searching posts: $e');
+      return [];
+    }
   }
 
   // Get posts near a location
@@ -340,7 +362,17 @@ class PostService {
         
         if (distance <= radiusKm) {
           final postData = Map<String, dynamic>.from(post);
+          
+          // Add counts
+          final likeCount = await getLikeCount(post['id']);
+          final isLiked = await isPostLikedByUser(post['id']);
+          final commentCount = await getCommentCount(post['id']);
+          
+          postData['like_count'] = likeCount;
+          postData['is_liked'] = isLiked;
+          postData['comment_count'] = commentCount;
           postData['distance_km'] = distance;
+          
           nearbyPosts.add(postData);
         }
       }

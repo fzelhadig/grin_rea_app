@@ -1,3 +1,4 @@
+// lib/services/follow_service.dart - Fixed Version
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:grin_rea_app/core/supabase_config.dart';
 import 'package:grin_rea_app/services/auth_service.dart';
@@ -78,33 +79,47 @@ class FollowService {
 
   // Get follower/following counts
   static Future<Map<String, int>> getFollowCounts(String userId) async {
-    final followers = await _client
-        .from('follows')
-        .select('id', const FetchOptions(count: CountOption.exact))
-        .eq('following_id', userId);
+    try {
+      // Get followers count
+      final followersResponse = await _client
+          .from('follows')
+          .select('id')
+          .eq('following_id', userId);
 
-    final following = await _client
-        .from('follows')
-        .select('id', const FetchOptions(count: CountOption.exact))
-        .eq('follower_id', userId);
+      // Get following count
+      final followingResponse = await _client
+          .from('follows')
+          .select('id')
+          .eq('follower_id', userId);
 
-    return {
-      'followers': followers.count ?? 0,
-      'following': following.count ?? 0,
-    };
+      return {
+        'followers': followersResponse.length,
+        'following': followingResponse.length,
+      };
+    } catch (e) {
+      print('Error getting follow counts: $e');
+      return {
+        'followers': 0,
+        'following': 0,
+      };
+    }
   }
 
   // Search users
   static Future<List<Map<String, dynamic>>> searchUsers(String query) async {
     if (query.isEmpty) return [];
 
-    final response = await _client
-        .from('profiles')
-        .select('id, username, full_name, avatar_url')
-        .or('username.ilike.%$query%,full_name.ilike.%$query%')
-        .eq('is_active', true)
-        .limit(20);
+    try {
+      final response = await _client
+          .from('profiles')
+          .select('id, username, full_name, avatar_url, bio, bike_model')
+          .or('username.ilike.%$query%,full_name.ilike.%$query%')
+          .limit(20);
 
-    return List<Map<String, dynamic>>.from(response);
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      print('Error searching users: $e');
+      return [];
+    }
   }
 }
